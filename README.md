@@ -8,7 +8,7 @@ Steps required to install -
 - Install mongodb and mongodb compass(to view data)
 - Start mongodb at port 27017(default) and make sure port 9000 is free for this backend server
 - Run `go mod download`
-- Type command `go run .`. This starts development server 
+- Type command `go run .` (This starts development server)
 - Send api requests via postman as per images below
 <hr />
 
