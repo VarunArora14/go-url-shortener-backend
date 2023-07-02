@@ -51,3 +51,5 @@ func main() {
 
 // prefer panic(err) for programmers as it outputs to stderr, otherwise use logs such as log.Fatal()
 // https://www.mongodb.com/blog/post/mongodb-go-driver-tutorial
+
+// https://stackoverflow.com/questions/52266332/manually-fetch-dependencies-from-go-mod

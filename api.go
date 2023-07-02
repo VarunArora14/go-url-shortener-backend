@@ -209,8 +209,8 @@ func apiMethod() {
 	router.HandleFunc("/decode", decode)
 	http.Handle("/", router) // important as here we define the router
 
-	fmt.Printf("server started at port 3000")
-	err := http.ListenAndServe(":3000", nil)
+	fmt.Printf("server started at port 9000")
+	err := http.ListenAndServe(":9000", nil)
 	if err != nil {
 		fmt.Printf("404 error bruh")
 		log.Fatal(err)
