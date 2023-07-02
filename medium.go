@@ -22,11 +22,11 @@ var short_to_long_mapper map[string]string // key is string and value is int, ma
 var long_to_short_mapper map[string]string
 
 type Long_url_struct struct {
-	Long_url string `json:"long_url"`
+	Input_long_url string `json:"long_url"`
 }
 
 type Short_url_struct struct {
-	Short_url string `json:"short_url"`
+	Input_short_url string `json:"short_url"`
 }
 
 type response_struct struct {
@@ -48,6 +48,18 @@ func getTinyUrl() string {
 }
 
 func encode(w http.ResponseWriter, r *http.Request) {
+
+	// check if wrong request method
+	if r.Method != "POST" {
+		http.Error(w, "only POST supported in encode method", http.StatusNotFound)
+		return
+	}
+
+	// check if empty body, can be done via io.EOF as wel
+	if r.Body == http.NoBody {
+		http.Error(w, "empty body in POST in encode method", http.StatusNotAcceptable)
+		return
+	}
 	// err := r.ParseForm() wont work as data not in www-x-formencoded but raw data
 
 	decoder := json.NewDecoder(r.Body) // it buffers the entire json value in memory before unmarshal
@@ -56,32 +68,35 @@ func encode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+
 	// log.Println(long_url_obj.Long_url)
 
-	// w.WriteHeader(http.StatusOK)
-	short_url, ok := long_to_short_mapper[long_url_obj.Long_url] // ok is bool, we can instead use if mapper[url]{} as well instead
+	short_url_val, ok := long_to_short_mapper[long_url_obj.Input_long_url] // ok is bool, we can instead use if mapper[url]{} as well instead
 
-	// empty struct with no value or data assigned rn
+	// empty struct with no value or data assigned rn``
 	var res_obj response_struct
+
 	if ok {
 		res_obj = response_struct{
 			Status:    "existed",
-			Short_url: short_url,
-			Long_url:  long_url_obj.Long_url,
+			Short_url: short_url_val,
+			Long_url:  long_url_obj.Input_long_url,
 		}
 	} else {
 		new_short_url := getTinyUrl()
-		long_to_short_mapper[long_url_obj.Long_url] = short_url // store the value
+
+		long_to_short_mapper[long_url_obj.Input_long_url] = new_short_url // store the new value in both mappers
+		short_to_long_mapper[new_short_url] = long_url_obj.Input_long_url
+
 		res_obj = response_struct{
 			Status:    "created",
 			Short_url: new_short_url,
-			Long_url:  long_url_obj.Long_url,
+			Long_url:  long_url_obj.Input_long_url,
 		}
 	}
 
 	// encode it to json before sending
 	jsonData, err := json.Marshal(res_obj)
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -92,25 +107,81 @@ func encode(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// todo: WIP
+// decode the long_url from short url
 func decode(w http.ResponseWriter, r *http.Request) {
+
+	// check if wrong request method
+	if r.Method != "POST" {
+		http.Error(w, "only POST method accepted in decode method", http.StatusNotFound)
+	}
+
+	// check if empty body, can be done via io.EOF as well
+	if r.Body == http.NoBody {
+		http.Error(w, "empty body in POST in decode method", http.StatusNotAcceptable)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+
+	var short_url_obj Short_url_struct
+	err := decoder.Decode(&short_url_obj) // unmarshal/decode by reference
+	if err != nil {
+		panic(err)
+	}
+
+	// check if long_url exists as value inside short_url_mapper
+	long_url_val, ok := short_to_long_mapper[short_url_obj.Input_short_url]
+
+	var res_obj response_struct
+	// ok == true means already in map
+	if ok {
+		res_obj = response_struct{
+			Status:    "existed",
+			Short_url: short_url_obj.Input_short_url,
+			Long_url:  long_url_val,
+		}
+	} else {
+		// short url does not exist
+		res_obj = response_struct{
+			Status:    "not_found",
+			Short_url: short_url_obj.Input_short_url,
+			Long_url:  "",
+		}
+	}
+
+	// encode the res_obj in json
+	jsonData, err := json.Marshal(res_obj)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
 
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != "GET" {
+		http.Error(w, "only GET method supported at /", http.StatusNotFound)
+		return
+	}
+
 	fmt.Fprintf(w, "hello suii")
 
 }
 
-func suii() {
+func apiMethod() {
 	router := mux.NewRouter()
 	short_to_long_mapper = make(map[string]string)
 	long_to_short_mapper = make(map[string]string)
 	// new_url := "https://github.com"
 	// http.Handle("/", http.RedirectHandler(new_url, http.StatusMovedPermanently))
 
-	router.HandleFunc("/", getRoot).Methods("GET")
-	router.HandleFunc("/encode", encode).Methods("POST")
+	router.HandleFunc("/", getRoot)
+	router.HandleFunc("/encode", encode)
+	router.HandleFunc("/decode", decode)
 	http.Handle("/", router) // important as here we define the router
 
 	fmt.Printf("server started at port 3000")
