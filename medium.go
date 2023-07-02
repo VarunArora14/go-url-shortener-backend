@@ -25,6 +25,16 @@ type Long_url_struct struct {
 	Long_url string `json:"long_url"`
 }
 
+type Short_url_struct struct {
+	Short_url string `json:"short_url"`
+}
+
+type response_struct struct {
+	Status    string `json:"status"`
+	Short_url string `json:"short_url"`
+	Long_url  string `json:"long_url"`
+}
+
 // generate random tiny-url for length 7
 func getTinyUrl() string {
 	short_url := ""
@@ -38,7 +48,6 @@ func getTinyUrl() string {
 }
 
 func encode(w http.ResponseWriter, r *http.Request) {
-
 	// err := r.ParseForm() wont work as data not in www-x-formencoded but raw data
 
 	decoder := json.NewDecoder(r.Body) // it buffers the entire json value in memory before unmarshal
@@ -52,16 +61,40 @@ func encode(w http.ResponseWriter, r *http.Request) {
 	// w.WriteHeader(http.StatusOK)
 	short_url, ok := long_to_short_mapper[long_url_obj.Long_url] // ok is bool, we can instead use if mapper[url]{} as well instead
 
+	// empty struct with no value or data assigned rn
+	var res_obj response_struct
 	if ok {
-		res_str := fmt.Sprint("short url ", short_url, "already exists")
-		fmt.Fprint(w, res_str)
+		res_obj = response_struct{
+			Status:    "existed",
+			Short_url: short_url,
+			Long_url:  long_url_obj.Long_url,
+		}
 	} else {
 		new_short_url := getTinyUrl()
 		long_to_short_mapper[long_url_obj.Long_url] = short_url // store the value
-		res_str := fmt.Sprint("new url created:", new_short_url)
-		fmt.Fprint(w, res_str)
-
+		res_obj = response_struct{
+			Status:    "created",
+			Short_url: new_short_url,
+			Long_url:  long_url_obj.Long_url,
+		}
 	}
+
+	// encode it to json before sending
+	jsonData, err := json.Marshal(res_obj)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
+
+}
+
+// todo: WIP
+func decode(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
@@ -106,3 +139,6 @@ func suii() {
 // or use decoder: = json.NewDecoder(request.body)
 // and then store the map the json to a struct. Read more here
 // https://articles.wesionary.team/difference-of-json-encoding-vs-marshaling-and-json-decoding-vs-unmarshaling-1a6baf6a7f5c
+
+// Sprint is another print method useful
+// res_str = fmt.Sprint("short url ", short_url, "already exists")
